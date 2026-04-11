@@ -1,32 +1,58 @@
 import os
 import shutil
 import subprocess
+import sys
+import datetime
+from typing import Optional
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from dotenv import load_dotenv
 from pathlib import Path
 from apscheduler.schedulers.background import BackgroundScheduler
-import datetime
-from typing import Optional
 
 # Import Engines
 from hunter import ArxivHunter
 from githuber import GitHuber
 from openai import OpenAI
 
-load_dotenv()
+# =================================================================
+# 💀 [TOMBSTONE PROTOCOL] 黑匣子与物理路径锁定
+# =================================================================
+
+# 1. 锁定真实的物理目录
+if getattr(sys, 'frozen', False):
+    TRUE_BASE_DIR = os.path.dirname(sys.executable)
+else:
+    TRUE_BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# 2. 封印虚空，建立本地黑匣子日志 (解决 --noconsole 崩溃的终极方案)
+if getattr(sys, 'frozen', False) or sys.stdout is None:
+    log_path = os.path.join(TRUE_BASE_DIR, "helix_blackbox.log")
+    log_file = open(log_path, "a", encoding="utf-8")
+    sys.stdout = log_file
+    sys.stderr = log_file
+else:
+    import io
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
+
+# 3. 强制从物理目录读取环境变量
+env_path = os.path.join(TRUE_BASE_DIR, '.env')
+load_dotenv(env_path)
 os.environ["NO_PROXY"] = "*"
 
-# --- [核心定义] 先把 APP 实例造出来，防止后面报 NameError ---
+# --- [核心定义] ---
 app = FastAPI(title="Project Helix API", version="5.0.0")
 
-# --- [路径锁定] ---
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+# --- [金库防御与路径下发] ---
 raw_path = os.getenv("OBSIDIAN_PATH", "").strip()
-MASTER_VAULT = raw_path if raw_path else os.path.join(BASE_DIR, "Vault")
+MASTER_VAULT = raw_path if raw_path else os.path.join(TRUE_BASE_DIR, "Vault")
 os.makedirs(MASTER_VAULT, exist_ok=True)
 os.environ["OBSIDIAN_PATH"] = MASTER_VAULT
+
+print(f"\n[{sys.platform.upper()} SYSTEM] Engine Ignited. Path Locked: {MASTER_VAULT}")
 
 # =================================================================
 # 🛡️ 核心守护进程：双时区点火逻辑

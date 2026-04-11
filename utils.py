@@ -73,10 +73,17 @@ class ObsidianFileStorage:
     Used by both Arxiv Hunter and GitHuber.
     """
     def __init__(self, vault_path: Optional[str] = None, subfolder: str = ""):
+        # [TOMBSTONE FIX] 强制读取在 api.py 中被暴力注入的真理路径
+        env_vault = os.getenv("OBSIDIAN_PATH")
+        
         if vault_path:
             self.base_dir = Path(vault_path).resolve()
+        elif env_vault:
+            # 无论你是谁，只要在 Tombstone 架构下，都给我滚回这个物理路径
+            self.base_dir = Path(env_vault).resolve()
         else:
-            self.base_dir = Path(__file__).resolve().parent / "Vault"
+            # 最后的防线：如果所有配置都失效，强制写在当前终端运行的物理目录下
+            self.base_dir = Path.cwd() / "Vault"
 
         self.target_dir = self.base_dir / subfolder if subfolder else self.base_dir
         self._ensure_directory()
